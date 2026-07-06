@@ -25,6 +25,15 @@ jobs:
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Verify Secret Presence
+        run: |
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
+            echo "❌ ERROR: EXPO_TOKEN is completely empty in GitHub Secrets!"
+            exit 1
+          else
+            echo "✅ EXPO_TOKEN is detected by the script."
+          fi
     
       - name: Trigger EAS Android Build
         env:
