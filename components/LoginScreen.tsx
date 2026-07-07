@@ -1,10 +1,51 @@
 import { Colors } from "@/constants/colors";
+import { login } from "@/services/auth.service";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
+import { useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export default function LoginScreen() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  async function handleLogin() {
+    if (!email.trim() || !password.trim()) {
+      Alert.alert("Missing info", "Please enter email and password.");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      const result = await login(email, password);
+
+      console.log("Login success:", result);
+
+      Alert.alert("Success", "Logged in successfully.");
+
+    } catch (error: any) {
+      console.log("Login error:", error.response?.data || error.message);
+
+      Alert.alert(
+        "Login failed",
+        error.response?.data?.message || "Could not login."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   return (
     <LinearGradient
       colors={["#080D11", "#101418", "#07180F"]}
@@ -23,6 +64,10 @@ export default function LoginScreen() {
           placeholder="Email address"
           placeholderTextColor="#657083"
           style={styles.input}
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          keyboardType="email-address"
         />
       </View>
 
@@ -33,6 +78,8 @@ export default function LoginScreen() {
           placeholderTextColor="#657083"
           secureTextEntry
           style={styles.input}
+          value={password}
+          onChangeText={setPassword}
         />
         <Ionicons name="eye-outline" size={22} color={Colors.muted} />
       </View>
@@ -42,8 +89,16 @@ export default function LoginScreen() {
         <Text style={styles.forgot}>Forgot password?</Text>
       </View>
 
-      <TouchableOpacity style={styles.signInButton}>
-        <Text style={styles.signInText}>SIGN IN</Text>
+      <TouchableOpacity
+        style={[styles.signInButton, isLoading && styles.disabledButton]}
+        onPress={handleLogin}
+        disabled={isLoading}
+      >
+        {isLoading ? (
+          <ActivityIndicator color="#06110B" />
+        ) : (
+          <Text style={styles.signInText}>SIGN IN</Text>
+        )}
       </TouchableOpacity>
 
       <View style={styles.dividerRow}>
@@ -55,9 +110,9 @@ export default function LoginScreen() {
       <TouchableOpacity
         style={styles.createButton}
         onPress={() => router.push("/register")}
-        >
+      >
         <Text style={styles.createText}>CREATE ACCOUNT</Text>
-       </TouchableOpacity>
+      </TouchableOpacity>
     </LinearGradient>
   );
 }
@@ -182,5 +237,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "900",
     letterSpacing: 2,
+  },
+
+  disabledButton: {
+   opacity: 0.7,
   },
 });

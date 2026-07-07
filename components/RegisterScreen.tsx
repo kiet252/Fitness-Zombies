@@ -1,8 +1,12 @@
 import { Colors } from "@/constants/colors";
+import { register } from "@/services/auth.service";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import { useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   StyleSheet,
   Text,
   TextInput,
@@ -11,13 +15,74 @@ import {
 } from "react-native";
 
 export default function RegisterScreen() {
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [isLoading, setIsLoading] = useState(false);
+
+  async function handleRegister() {
+    if (
+        !fullName.trim() ||
+        !email.trim() ||
+        !password.trim() ||
+        !confirmPassword.trim()
+    ) {
+        Alert.alert("Missing information", "Please fill in all fields.");
+        return;
+    }
+
+    if (password !== confirmPassword) {
+        Alert.alert("Password mismatch", "Passwords do not match.");
+        return;
+    }
+
+    try {
+        setIsLoading(true);
+
+        const result = await register({
+        fullName,
+        email,
+        password,
+        });
+
+        console.log("Register success:", result);
+
+        Alert.alert(
+        "Success",
+        "Account created successfully.",
+        [
+            {
+            text: "OK",
+            onPress: () => router.replace("/login"),
+            },
+        ]
+        );
+    } catch (error: any) {
+        console.log(error);
+
+        Alert.alert(
+        "Registration Failed",
+        error.response?.data?.message ||
+            error.message ||
+            "Could not create account."
+        );
+    } finally {
+        setIsLoading(false);
+    }
+    }
+
   return (
     <LinearGradient
       colors={["#080D11", "#101418", "#07180F"]}
       style={styles.container}
     >
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
           <Ionicons name="chevron-back" size={24} color={Colors.text} />
         </TouchableOpacity>
 
@@ -33,6 +98,8 @@ export default function RegisterScreen() {
           placeholder="Full Name"
           placeholderTextColor="#657083"
           style={styles.input}
+          value={fullName}
+          onChangeText={setFullName}
         />
       </View>
 
@@ -44,6 +111,8 @@ export default function RegisterScreen() {
           keyboardType="email-address"
           autoCapitalize="none"
           style={styles.input}
+          value={email}
+          onChangeText={setEmail}
         />
       </View>
 
@@ -54,6 +123,8 @@ export default function RegisterScreen() {
           placeholderTextColor="#657083"
           secureTextEntry
           style={styles.input}
+          value={password}
+          onChangeText={setPassword}
         />
         <Ionicons name="eye-outline" size={20} color={Colors.muted} />
       </View>
@@ -65,12 +136,22 @@ export default function RegisterScreen() {
           placeholderTextColor="#657083"
           secureTextEntry
           style={styles.input}
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
         />
         <Ionicons name="eye-outline" size={20} color={Colors.muted} />
       </View>
 
-      <TouchableOpacity style={styles.createButton}>
-        <Text style={styles.createText}>CREATE ACCOUNT</Text>
+      <TouchableOpacity
+        style={[styles.createButton, isLoading && styles.disabledButton]}
+        onPress={handleRegister}
+        disabled={isLoading}
+      >
+        {isLoading ? (
+          <ActivityIndicator color="#06110B" />
+        ) : (
+          <Text style={styles.createText}>CREATE ACCOUNT</Text>
+        )}
       </TouchableOpacity>
 
       <View style={styles.footer}>
@@ -172,5 +253,9 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontSize: 13,
     fontWeight: "800",
+  },
+
+  disabledButton: {
+   opacity: 0.7,
   },
 });
