@@ -1,6 +1,10 @@
 import api from "./api";
+import { AuthResponse } from "@/types/auth";
 
-export async function login(email: string, password: string) {
+export async function login(
+  email: string,
+  password: string
+): Promise<AuthResponse> {
   const response = await api.post("/auth/login", {
     email,
     password,

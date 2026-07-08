@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { saveToken } from "@/services/token.service";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -30,9 +31,13 @@ export default function LoginScreen() {
 
       const result = await login(email, password);
 
+      await saveToken(result.token);
+
       console.log("Login success:", result);
 
       Alert.alert("Success", "Logged in successfully.");
+
+      router.replace("/home");
 
     } catch (error: any) {
       console.log("Login error:", error.response?.data || error.message);
