@@ -1,6 +1,22 @@
 import { Colors } from "@/constants/colors";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { StyleSheet, Text, View } from "react-native";
+
+type DailyStats = {
+  steps?: number;
+  distanceMeters?: number;
+  caloriesBurned?: number;
+  activeSeconds?: number;
+};
+
+type Profile = {
+  stepGoal?: number;
+};
+
+type Props = {
+  stats?: DailyStats;
+  profile?: Profile;
+};
 
 function StatItem({ icon, value, label, color = Colors.primary }: any) {
   return (
@@ -14,7 +30,18 @@ function StatItem({ icon, value, label, color = Colors.primary }: any) {
   );
 }
 
-export default function ActivityCard() {
+export default function ActivityCard({ stats, profile }: Props) {
+  const stepGoal = profile?.stepGoal || 10000;
+  const currentSteps = stats?.steps || 0;
+  const distanceKm = ((stats?.distanceMeters || 0) / 1000).toFixed(1);
+  const calories = stats?.caloriesBurned || 0;
+  const activeMinutes = Math.floor((stats?.activeSeconds || 0) / 60);
+
+  const progressPercentage = Math.min(
+    (currentSteps / stepGoal) * 100,
+    100
+  ).toFixed(0);
+
   return (
     <View style={styles.card}>
       <View style={styles.header}>
@@ -23,19 +50,21 @@ export default function ActivityCard() {
       </View>
 
       <View style={styles.statsRow}>
-        <StatItem icon="shoe-print" value="9,241" label="Steps" />
-        <StatItem icon="map-marker-radius" value="6.8km" label="Distance" />
-        <StatItem icon="fire" value="542" label="Calories" color="#FFB020" />
-        <StatItem icon="clock-outline" value="42m" label="Active" color="#9AA4B2" />
+        <StatItem icon="shoe-print" value={currentSteps.toLocaleString()} label="Steps" />
+        <StatItem icon="map-marker-radius" value={`${distanceKm}km`} label="Distance" />
+        <StatItem icon="fire" value={calories} label="Calories" color="#FFB020" />
+        <StatItem icon="clock-outline" value={`${activeMinutes}m`} label="Active" color="#9AA4B2" />
       </View>
 
       <View style={styles.progressRow}>
-        <Text style={styles.progressText}>Daily goal: 10,000 steps</Text>
-        <Text style={styles.progressText}>92%</Text>
+        <Text style={styles.progressText}>
+          Daily goal: {stepGoal.toLocaleString()} steps
+        </Text>
+        <Text style={styles.progressText}>{progressPercentage}%</Text>
       </View>
 
       <View style={styles.progressBg}>
-        <View style={styles.progressFill} />
+        <View style={[styles.progressFill, { width: `${progressPercentage}%` as any }]} />
       </View>
     </View>
   );
@@ -113,7 +142,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#263037",
   },
   progressFill: {
-    width: "92%",
     height: "100%",
     borderRadius: 8,
     backgroundColor: Colors.primary,

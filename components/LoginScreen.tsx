@@ -13,7 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { saveToken } from "@/services/token.service";
+import { saveAuth } from "@/services/token.service";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -31,7 +31,12 @@ export default function LoginScreen() {
 
       const result = await login(email, password);
 
-      await saveToken(result.token);
+      await saveAuth({
+        userId: result.userId,
+        fullName: result.fullName,
+        email: result.email,
+        token: result.token,
+      });
 
       console.log("Login success:", result);
 

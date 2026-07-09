@@ -6,12 +6,14 @@ type Props = {
   fullName?: string;
 };
 
-export default function HomeHeader({ fullName = "Alex" }: Props) {
+export default function HomeHeader({ fullName }: Props) {
+  const firstName = fullName?.split(" ")[0] || "User";
+
   return (
     <View style={styles.container}>
       <View>
         <Text style={styles.date}>MONDAY, JUL 6</Text>
-        <Text style={styles.greeting}>Good Morning, {fullName} 👋</Text>
+        <Text style={styles.greeting}>Good Morning, {firstName} 👋</Text>
       </View>
 
       <TouchableOpacity style={styles.bell}>

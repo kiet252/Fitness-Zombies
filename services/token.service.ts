@@ -1,15 +1,34 @@
 import * as SecureStore from "expo-secure-store";
 
-const TOKEN_KEY = "access_token";
+const AUTH_KEY = "auth";
 
-export async function saveToken(token: string) {
-  await SecureStore.setItemAsync(TOKEN_KEY, token);
+export type AuthData = {
+  userId: string;
+  fullName: string;
+  email: string;
+  token: string;
+};
+
+export async function saveAuth(data: AuthData) {
+  await SecureStore.setItemAsync(
+    AUTH_KEY,
+    JSON.stringify(data)
+  );
+}
+
+export async function getAuth(): Promise<AuthData | null> {
+  const value = await SecureStore.getItemAsync(AUTH_KEY);
+
+  if (!value) return null;
+
+  return JSON.parse(value);
 }
 
 export async function getToken() {
-  return SecureStore.getItemAsync(TOKEN_KEY);
+  const auth = await getAuth();
+  return auth?.token ?? null;
 }
 
-export async function removeToken() {
-  await SecureStore.deleteItemAsync(TOKEN_KEY);
+export async function removeAuth() {
+  await SecureStore.deleteItemAsync(AUTH_KEY);
 }

@@ -1,7 +1,16 @@
 import { Colors } from "@/constants/colors";
 import { StyleSheet, Text, View } from "react-native";
 
-export default function DistanceChart() {
+type Props = {
+  weeklyDistance?: number[];
+};
+
+const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+export default function DistanceChart({ weeklyDistance = [] }: Props) {
+  const data = weeklyDistance.length ? weeklyDistance : [0, 0, 0, 0, 0, 0, 0];
+  const max = Math.max(...data, 1);
+
   return (
     <View style={styles.card}>
       <View style={styles.header}>
@@ -13,8 +22,19 @@ export default function DistanceChart() {
         </View>
       </View>
 
-      <View style={styles.chartPlaceholder}>
-        <Text style={styles.chartText}>Chart placeholder</Text>
+      <View style={styles.chart}>
+        {data.map((km, index) => {
+          const height = Math.max((km / max) * 90, 4);
+
+          return (
+            <View key={index} style={styles.barItem}>
+              <View style={styles.barTrack}>
+                <View style={[styles.barFill, { height }]} />
+              </View>
+              <Text style={styles.day}>{days[index]}</Text>
+            </View>
+          );
+        })}
       </View>
     </View>
   );
@@ -59,15 +79,32 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
   },
-  chartPlaceholder: {
-    height: 120,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#263037",
-    alignItems: "center",
-    justifyContent: "center",
+  chart: {
+    height: 130,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
   },
-  chartText: {
+  barItem: {
+    alignItems: "center",
+    flex: 1,
+  },
+  barTrack: {
+    height: 95,
+    width: 12,
+    borderRadius: 999,
+    backgroundColor: "#263037",
+    justifyContent: "flex-end",
+    overflow: "hidden",
+  },
+  barFill: {
+    width: "100%",
+    borderRadius: 999,
+    backgroundColor: Colors.primary,
+  },
+  day: {
     color: Colors.muted,
+    fontSize: 10,
+    marginTop: 8,
   },
 });
