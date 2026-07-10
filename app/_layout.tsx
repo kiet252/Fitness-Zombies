@@ -21,6 +21,15 @@ export default function RootLayout() {
           <Stack.Screen name="login" />
           <Stack.Screen name="register" />
           <Stack.Screen name="(main)" />
+
+          <Stack.Screen
+            name="normal-run"
+            options={{
+              headerShown: false,
+              presentation: "card",
+              animation: "slide_from_right",
+            }}
+          />
         </Stack>
 
     </View>
