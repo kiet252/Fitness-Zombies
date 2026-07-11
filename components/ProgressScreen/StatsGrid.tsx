@@ -1,38 +1,96 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { StyleSheet, View } from "react-native";
+
+import { RunResponse } from "@/services/run.service";
+
+import { ProgressPeriod } from "./ProgressTabs";
 import StatCard from "./StatCard";
 
-export default function StatsGrid() {
+type Props = {
+  runs: RunResponse[];
+  period: ProgressPeriod;
+};
+
+export default function StatsGrid({
+  runs,
+  period,
+}: Props) {
+  const stats = useMemo(() => {
+    return calculateStats(runs);
+  }, [runs]);
+
+  const distanceLabel =
+    period === "week"
+      ? "Weekly Distance"
+      : "Monthly Distance";
+
   return (
     <View style={styles.grid}>
       <StatCard
         icon="⌖"
-        value="38.3 km"
-        label="Weekly Distance"
-        change="+12%"
-        color="#2df28c"
+        value={`${stats.distanceKilometers.toFixed(1)} km`}
+        label={distanceLabel}
+        change=""
+        color="#2DF28C"
       />
+
       <StatCard
         icon="♨"
-        value="3,120 kcal"
+        value={`${Math.round(stats.caloriesBurned).toLocaleString()} kcal`}
         label="Calories Burned"
-        change="+8%"
-        color="#ff9f1c"
+        change=""
+        color="#FF9F1C"
       />
+
       <StatCard
         icon="◷"
-        value="3h 42m"
+        value={formatActiveTime(stats.durationSeconds)}
         label="Active Time"
-        change="+15%"
+        change=""
       />
+
       <StatCard
         icon="⌁"
-        value="5 runs"
+        value={`${stats.totalRuns} ${
+          stats.totalRuns === 1 ? "run" : "runs"
+        }`}
         label="Total Runs"
-        change="+2"
+        change=""
       />
     </View>
   );
+}
+
+function calculateStats(runs: RunResponse[]) {
+  return runs.reduce(
+    (stats, run) => {
+      stats.distanceKilometers += run.distanceMeters / 1000;
+      stats.caloriesBurned += run.caloriesBurned;
+      stats.durationSeconds += run.durationSeconds;
+      stats.totalRuns += 1;
+
+      return stats;
+    },
+    {
+      distanceKilometers: 0,
+      caloriesBurned: 0,
+      durationSeconds: 0,
+      totalRuns: 0,
+    },
+  );
+}
+
+function formatActiveTime(totalSeconds: number): string {
+  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
+
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+
+  return `${minutes}m`;
 }
 
 const styles = StyleSheet.create({

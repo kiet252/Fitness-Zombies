@@ -27,8 +27,11 @@ import {
 } from "@/services/run.service";
 
 type RunStatus = "running" | "paused" | "finished";
-
 type LocationSubscription = Location.LocationSubscription;
+
+const MIN_SEGMENT_DISTANCE_METERS = 2;
+const MAX_SEGMENT_DISTANCE_METERS = 100;
+const MAX_REASONABLE_SPEED_KMH = 50;
 
 const DARK_MAP_STYLE = [
   {
@@ -95,17 +98,18 @@ const DARK_MAP_STYLE = [
   },
 ];
 
-/**
- * Calculates the distance between two GPS coordinates.
- * Result is returned in meters.
- */
-function calculateDistanceMeters(first: LatLng, second: LatLng): number {
+function calculateDistanceMeters(
+  first: LatLng,
+  second: LatLng,
+): number {
   const earthRadiusMeters = 6_371_000;
 
   const latitude1 = (first.latitude * Math.PI) / 180;
   const latitude2 = (second.latitude * Math.PI) / 180;
+
   const latitudeDifference =
     ((second.latitude - first.latitude) * Math.PI) / 180;
+
   const longitudeDifference =
     ((second.longitude - first.longitude) * Math.PI) / 180;
 
@@ -116,20 +120,70 @@ function calculateDistanceMeters(first: LatLng, second: LatLng): number {
       Math.sin(longitudeDifference / 2) ** 2;
 
   const angularDistance =
-    2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+    2 *
+    Math.atan2(
+      Math.sqrt(haversine),
+      Math.sqrt(1 - haversine),
+    );
 
   return earthRadiusMeters * angularDistance;
 }
 
+function calculateSpeedKmh(
+  location: Location.LocationObject,
+  previousPoint: RunRoutePoint,
+  nextPoint: RunRoutePoint,
+  segmentDistanceMeters: number,
+): number {
+  const gpsSpeedKmh =
+    location.coords.speed != null &&
+    location.coords.speed >= 0
+      ? location.coords.speed * 3.6
+      : null;
+
+  const previousTimestamp = new Date(
+    previousPoint.timestamp,
+  ).getTime();
+
+  const nextTimestamp = new Date(nextPoint.timestamp).getTime();
+
+  const elapsedSeconds =
+    (nextTimestamp - previousTimestamp) / 1000;
+
+  const calculatedSpeedKmh =
+    elapsedSeconds > 0
+      ? (segmentDistanceMeters / elapsedSeconds) * 3.6
+      : 0;
+
+  let speed =
+    gpsSpeedKmh != null && gpsSpeedKmh >= 0.5
+      ? gpsSpeedKmh
+      : calculatedSpeedKmh;
+
+  if (
+    !Number.isFinite(speed) ||
+    speed < 0 ||
+    speed > MAX_REASONABLE_SPEED_KMH
+  ) {
+    speed = 0;
+  }
+
+  return speed;
+}
+
 function formatDuration(totalSeconds: number): string {
   const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const minutes = Math.floor(
+    (totalSeconds % 3600) / 60,
+  );
   const seconds = totalSeconds % 60;
 
   if (hours > 0) {
     return `${hours.toString().padStart(2, "0")}:${minutes
       .toString()
-      .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+      .padStart(2, "0")}:${seconds
+      .toString()
+      .padStart(2, "0")}`;
   }
 
   return `${minutes.toString().padStart(2, "0")}:${seconds
@@ -145,42 +199,65 @@ function formatPace(
     return "--'--\"";
   }
 
-  const secondsPerKilometer = elapsedSeconds / distanceKilometers;
-  const paceMinutes = Math.floor(secondsPerKilometer / 60);
-  const paceSeconds = Math.floor(secondsPerKilometer % 60);
+  const secondsPerKilometer =
+    elapsedSeconds / distanceKilometers;
 
-  return `${paceMinutes}'${paceSeconds.toString().padStart(2, "0")}"`;
+  const paceMinutes = Math.floor(
+    secondsPerKilometer / 60,
+  );
+
+  const paceSeconds = Math.floor(
+    secondsPerKilometer % 60,
+  );
+
+  return `${paceMinutes}'${paceSeconds
+    .toString()
+    .padStart(2, "0")}"`;
 }
 
 export default function NormalRunScreen() {
   const mapRef = useRef<MapView>(null);
-  const locationSubscriptionRef = useRef<LocationSubscription | null>(null);
 
-  const [permissionGranted, setPermissionGranted] = useState<boolean | null>(
-    null,
-  );
-  const [currentLocation, setCurrentLocation] = useState<LatLng | null>(null);
-  const [routeCoordinates, setRouteCoordinates] = useState<RunRoutePoint[]>([]);
-  const [distanceMeters, setDistanceMeters] = useState(0);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [runStatus, setRunStatus] = useState<RunStatus>("running");
-  const [isMapFollowing, setIsMapFollowing] = useState(true);
+  const locationSubscriptionRef =
+    useRef<LocationSubscription | null>(null);
+
+  const lastAcceptedPointRef =
+    useRef<RunRoutePoint | null>(null);
+
   const runStartTimeRef = useRef(new Date());
   const isFinishingRef = useRef(false);
+  const runStatusRef = useRef<RunStatus>("running");
+  const isMapFollowingRef = useRef(true);
+  const bestSpeedKmhRef = useRef(0);
+
+  const [permissionGranted, setPermissionGranted] =
+    useState<boolean | null>(null);
+
+  const [currentLocation, setCurrentLocation] =
+    useState<RunRoutePoint | null>(null);
+
+  const [routeCoordinates, setRouteCoordinates] =
+    useState<RunRoutePoint[]>([]);
+
+  const [distanceMeters, setDistanceMeters] = useState(0);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  const [currentSpeedKmh, setCurrentSpeedKmh] =
+    useState(0);
+
+  const [bestSpeedKmh, setBestSpeedKmh] = useState(0);
+
+  const [runStatus, setRunStatus] =
+    useState<RunStatus>("running");
+
+  const [isMapFollowing, setIsMapFollowing] =
+    useState(true);
+
+  const [isSaving, setIsSaving] = useState(false);
 
   const distanceKilometers = distanceMeters / 1000;
 
-  const [isSaving, setIsSaving] = useState(false);
-  const runStatusRef = useRef<RunStatus>("running");
-  const isMapFollowingRef = useRef(true);
-
-  const estimatedSteps = useMemo(() => {
-    // Approximate average step length: 0.78 meters.
-    return Math.floor(distanceMeters / 0.78);
-  }, [distanceMeters]);
-
   const estimatedCalories = useMemo(() => {
-    // Temporary estimate until user weight is included.
     return Math.floor(distanceKilometers * 65);
   }, [distanceKilometers]);
 
@@ -222,7 +299,10 @@ export default function NormalRunScreen() {
       const permission =
         await Location.requestForegroundPermissionsAsync();
 
-      if (permission.status !== Location.PermissionStatus.GRANTED) {
+      if (
+        permission.status !==
+        Location.PermissionStatus.GRANTED
+      ) {
         setPermissionGranted(false);
 
         Alert.alert(
@@ -235,18 +315,23 @@ export default function NormalRunScreen() {
 
       setPermissionGranted(true);
 
-      const initialPosition = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      });
+      const initialPosition =
+        await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
 
       const initialCoordinate: RunRoutePoint = {
         latitude: initialPosition.coords.latitude,
         longitude: initialPosition.coords.longitude,
-        timestamp: new Date(initialPosition.timestamp).toISOString(),
+        timestamp: new Date(
+          initialPosition.timestamp,
+        ).toISOString(),
       };
 
       setCurrentLocation(initialCoordinate);
       setRouteCoordinates([initialCoordinate]);
+
+      lastAcceptedPointRef.current = initialCoordinate;
 
       moveMapToLocation(initialCoordinate, false);
 
@@ -260,7 +345,11 @@ export default function NormalRunScreen() {
           handleLocationUpdate,
         );
     } catch (error) {
-      console.error("Could not start location tracking:", error);
+      console.error(
+        "Could not start location tracking:",
+        error,
+      );
+
       setPermissionGranted(false);
 
       Alert.alert(
@@ -270,53 +359,95 @@ export default function NormalRunScreen() {
     }
   }
 
-  function handleLocationUpdate(location: Location.LocationObject) {
+  function handleLocationUpdate(
+    location: Location.LocationObject,
+  ) {
     const nextCoordinate: RunRoutePoint = {
       latitude: location.coords.latitude,
       longitude: location.coords.longitude,
-      timestamp: new Date(location.timestamp).toISOString(),
+      timestamp: new Date(
+        location.timestamp,
+      ).toISOString(),
     };
 
     setCurrentLocation(nextCoordinate);
 
     if (runStatusRef.current !== "running") {
+      setCurrentSpeedKmh(0);
       return;
     }
 
-    setRouteCoordinates((previousCoordinates) => {
-      const previousCoordinate =
-        previousCoordinates[previousCoordinates.length - 1];
+    const previousCoordinate =
+      lastAcceptedPointRef.current;
 
-      if (!previousCoordinate) {
-        return [nextCoordinate];
-      }
+    if (!previousCoordinate) {
+      lastAcceptedPointRef.current = nextCoordinate;
 
-      const segmentDistance = calculateDistanceMeters(
-        previousCoordinate,
+      setRouteCoordinates((previous) => [
+        ...previous,
         nextCoordinate,
-      );
+      ]);
 
-      /*
-       * Ignore tiny movements caused by normal GPS drift.
-       * Also ignore unrealistic jumps larger than 100 meters.
-       */
-      if (segmentDistance < 2 || segmentDistance > 100) {
-        return previousCoordinates;
+      return;
+    }
+
+    const segmentDistance = calculateDistanceMeters(
+      previousCoordinate,
+      nextCoordinate,
+    );
+
+    if (
+      segmentDistance < MIN_SEGMENT_DISTANCE_METERS ||
+      segmentDistance > MAX_SEGMENT_DISTANCE_METERS
+    ) {
+      return;
+    }
+
+    const speedKmh = calculateSpeedKmh(
+      location,
+      previousCoordinate,
+      nextCoordinate,
+      segmentDistance,
+    );
+
+    setCurrentSpeedKmh((previousSpeed) => {
+      if (speedKmh === 0) {
+        return 0;
       }
 
-      setDistanceMeters((previousDistance) => {
-        return previousDistance + segmentDistance;
-      });
+      if (previousSpeed === 0) {
+        return speedKmh;
+      }
 
-      return [...previousCoordinates, nextCoordinate];
+      return previousSpeed * 0.65 + speedKmh * 0.35;
     });
+
+    if (speedKmh > bestSpeedKmhRef.current) {
+      bestSpeedKmhRef.current = speedKmh;
+      setBestSpeedKmh(speedKmh);
+    }
+
+    lastAcceptedPointRef.current = nextCoordinate;
+
+    setDistanceMeters(
+      (previousDistance) =>
+        previousDistance + segmentDistance,
+    );
+
+    setRouteCoordinates((previousCoordinates) => [
+      ...previousCoordinates,
+      nextCoordinate,
+    ]);
 
     if (isMapFollowingRef.current) {
       moveMapToLocation(nextCoordinate, true);
     }
   }
 
-  function moveMapToLocation(coordinate: LatLng, animated = true) {
+  function moveMapToLocation(
+    coordinate: LatLng,
+    animated = true,
+  ) {
     mapRef.current?.animateCamera(
       {
         center: coordinate,
@@ -333,7 +464,16 @@ export default function NormalRunScreen() {
 
   function handlePauseResume() {
     setRunStatus((previousStatus) => {
-      return previousStatus === "running" ? "paused" : "running";
+      if (previousStatus === "running") {
+        setCurrentSpeedKmh(0);
+        return "paused";
+      }
+
+      if (currentLocation) {
+        lastAcceptedPointRef.current = currentLocation;
+      }
+
+      return "running";
     });
   }
 
@@ -348,17 +488,27 @@ export default function NormalRunScreen() {
 
   function handleFinish() {
     setRunStatus("paused");
+    setCurrentSpeedKmh(0);
 
     Alert.alert(
       "Finish run?",
       `Distance: ${distanceKilometers.toFixed(
         2,
-      )} km\nTime: ${formatDuration(elapsedSeconds)}`,
+      )} km\nTime: ${formatDuration(
+        elapsedSeconds,
+      )}\nBest speed: ${bestSpeedKmh.toFixed(1)} km/h`,
       [
         {
           text: "Continue",
           style: "cancel",
-          onPress: () => setRunStatus("running"),
+          onPress: () => {
+            if (currentLocation) {
+              lastAcceptedPointRef.current =
+                currentLocation;
+            }
+
+            setRunStatus("running");
+          },
         },
         {
           text: "Finish",
@@ -388,6 +538,9 @@ export default function NormalRunScreen() {
         distanceMeters: Math.round(distanceMeters),
         durationSeconds: elapsedSeconds,
         caloriesBurned: estimatedCalories,
+        bestSpeedKmh: Number(
+          bestSpeedKmhRef.current.toFixed(2),
+        ),
         routeData: {
           points: routeCoordinates,
         },
@@ -397,7 +550,11 @@ export default function NormalRunScreen() {
 
       Alert.alert(
         "Run saved",
-        `You completed ${distanceKilometers.toFixed(2)} km.`,
+        `You completed ${distanceKilometers.toFixed(
+          2,
+        )} km.\nBest speed: ${bestSpeedKmhRef.current.toFixed(
+          1,
+        )} km/h`,
         [
           {
             text: "Done",
@@ -432,12 +589,22 @@ export default function NormalRunScreen() {
     longitudeDelta: 0.006,
   };
 
-  if (permissionGranted === null || !currentLocation) {
+  if (
+    permissionGranted === null ||
+    !currentLocation
+  ) {
     return (
       <View style={styles.loadingContainer}>
         <StatusBar barStyle="light-content" />
-        <ActivityIndicator size="large" color="#3DDC84" />
-        <Text style={styles.loadingText}>Connecting to GPS...</Text>
+
+        <ActivityIndicator
+          size="large"
+          color="#3DDC84"
+        />
+
+        <Text style={styles.loadingText}>
+          Connecting to GPS...
+        </Text>
       </View>
     );
   }
@@ -447,21 +614,28 @@ export default function NormalRunScreen() {
       <SafeAreaView style={styles.permissionContainer}>
         <StatusBar barStyle="light-content" />
 
-        <Ionicons name="location-outline" size={60} color="#FF4D4F" />
+        <Ionicons
+          name="location-outline"
+          size={60}
+          color="#FF4D4F"
+        />
 
         <Text style={styles.permissionTitle}>
           Location permission required
         </Text>
 
         <Text style={styles.permissionDescription}>
-          Enable location access so Zombie Runner can track your live route.
+          Enable location access so Zombie Runner can
+          track your live route.
         </Text>
 
         <Pressable
           style={styles.permissionButton}
           onPress={requestLocationAndStartTracking}
         >
-          <Text style={styles.permissionButtonText}>Try again</Text>
+          <Text style={styles.permissionButtonText}>
+            Try again
+          </Text>
         </Pressable>
       </SafeAreaView>
     );
@@ -478,7 +652,11 @@ export default function NormalRunScreen() {
       <MapView
         ref={mapRef}
         style={StyleSheet.absoluteFillObject}
-        provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
+        provider={
+          Platform.OS === "android"
+            ? PROVIDER_GOOGLE
+            : undefined
+        }
         initialRegion={initialRegion}
         customMapStyle={DARK_MAP_STYLE}
         showsUserLocation
@@ -489,9 +667,6 @@ export default function NormalRunScreen() {
         rotateEnabled
         pitchEnabled={false}
         onPanDrag={() => setIsMapFollowing(false)}
-        onUserLocationChange={(event) => {
-            console.log("Map user location:", event.nativeEvent.coordinate);
-        }}
       >
         {routeCoordinates.length >= 2 && (
           <>
@@ -513,37 +688,51 @@ export default function NormalRunScreen() {
           </>
         )}
 
-        {currentLocation && (
-          <Marker
-            coordinate={currentLocation}
-            anchor={{ x: 0.5, y: 0.5 }}
-            tracksViewChanges={false}
-          >
-            <View style={styles.locationMarkerOuter}>
-              <View style={styles.locationMarkerMiddle}>
-                <View style={styles.locationMarkerInner} />
-              </View>
+        <Marker
+          coordinate={currentLocation}
+          anchor={{ x: 0.5, y: 0.5 }}
+          tracksViewChanges={false}
+        >
+          <View style={styles.locationMarkerOuter}>
+            <View style={styles.locationMarkerMiddle}>
+              <View style={styles.locationMarkerInner} />
             </View>
-          </Marker>
-        )}
+          </View>
+        </Marker>
       </MapView>
 
-      <SafeAreaView pointerEvents="box-none" style={styles.overlay}>
+      <SafeAreaView
+        pointerEvents="box-none"
+        style={styles.overlay}
+      >
         <View style={styles.topBar}>
           <Pressable
             style={styles.circleButton}
             onPress={() => router.back()}
           >
-            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+            <Ionicons
+              name="chevron-back"
+              size={24}
+              color="#FFFFFF"
+            />
           </Pressable>
 
           <View style={styles.gpsBadge}>
             <View style={styles.gpsDot} />
-            <Text style={styles.gpsText}>GPS LOCKED</Text>
+            <Text style={styles.gpsText}>
+              GPS LOCKED
+            </Text>
           </View>
 
-          <Pressable style={styles.circleButton} onPress={handleRecenter}>
-            <Ionicons name="navigate-outline" size={21} color="#CFD8E1" />
+          <Pressable
+            style={styles.circleButton}
+            onPress={handleRecenter}
+          >
+            <Ionicons
+              name="navigate-outline"
+              size={21}
+              color="#CFD8E1"
+            />
           </Pressable>
         </View>
 
@@ -552,19 +741,33 @@ export default function NormalRunScreen() {
             {distanceKilometers.toFixed(2)}
           </Text>
 
-          <Text style={styles.distanceLabel}>KILOMETERS</Text>
+          <Text style={styles.distanceLabel}>
+            KILOMETERS
+          </Text>
 
           {runStatus === "paused" && (
             <View style={styles.pausedBadge}>
-              <Text style={styles.pausedBadgeText}>RUN PAUSED</Text>
+              <Text style={styles.pausedBadgeText}>
+                RUN PAUSED
+              </Text>
             </View>
           )}
         </View>
 
         {!isMapFollowing && (
-          <Pressable style={styles.recenterButton} onPress={handleRecenter}>
-            <Ionicons name="locate" size={20} color="#101418" />
-            <Text style={styles.recenterText}>Recenter</Text>
+          <Pressable
+            style={styles.recenterButton}
+            onPress={handleRecenter}
+          >
+            <Ionicons
+              name="locate"
+              size={20}
+              color="#101418"
+            />
+
+            <Text style={styles.recenterText}>
+              Recenter
+            </Text>
           </Pressable>
         )}
 
@@ -590,6 +793,18 @@ export default function NormalRunScreen() {
                   color="#B0B7C3"
                 />
               }
+              value={currentSpeedKmh.toFixed(1)}
+              label="KM/H"
+            />
+
+            <StatItem
+              icon={
+                <MaterialCommunityIcons
+                  name="run-fast"
+                  size={19}
+                  color="#B0B7C3"
+                />
+              }
               value={pace}
               label="PACE / KM"
             />
@@ -605,19 +820,11 @@ export default function NormalRunScreen() {
               value={estimatedCalories.toString()}
               label="KCAL"
             />
-
-            <StatItem
-              icon={
-                <MaterialCommunityIcons
-                  name="shoe-print"
-                  size={19}
-                  color="#B0B7C3"
-                />
-              }
-              value={estimatedSteps.toString()}
-              label="STEPS"
-            />
           </View>
+
+          <Text style={styles.bestSpeedText}>
+            Best speed: {bestSpeedKmh.toFixed(1)} km/h
+          </Text>
 
           <View style={styles.actionsRow}>
             <Pressable
@@ -631,13 +838,19 @@ export default function NormalRunScreen() {
               onPress={handlePauseResume}
             >
               <Ionicons
-                name={runStatus === "running" ? "pause" : "play"}
+                name={
+                  runStatus === "running"
+                    ? "pause"
+                    : "play"
+                }
                 size={20}
                 color="#FFA940"
               />
 
               <Text style={styles.pauseButtonText}>
-                {runStatus === "running" ? "Pause" : "Resume"}
+                {runStatus === "running"
+                  ? "Pause"
+                  : "Resume"}
               </Text>
             </Pressable>
 
@@ -652,7 +865,10 @@ export default function NormalRunScreen() {
               onPress={handleFinish}
             >
               {isSaving ? (
-                <ActivityIndicator size="small" color="#FF4D4F" />
+                <ActivityIndicator
+                  size="small"
+                  color="#FF4D4F"
+                />
               ) : (
                 <Ionicons
                   name="stop-outline"
@@ -678,13 +894,23 @@ type StatItemProps = {
   label: string;
 };
 
-function StatItem({ icon, value, label }: StatItemProps) {
+function StatItem({
+  icon,
+  value,
+  label,
+}: StatItemProps) {
   return (
     <View style={styles.statItem}>
       {icon}
-      <Text style={styles.statValue} numberOfLines={1}>
+
+      <Text
+        style={styles.statValue}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+      >
         {value}
       </Text>
+
       <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
@@ -695,21 +921,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#081016",
   },
-
   loadingContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#081016",
   },
-
   loadingText: {
     marginTop: 16,
     color: "#B0B7C3",
     fontSize: 14,
     fontWeight: "600",
   },
-
   permissionContainer: {
     flex: 1,
     paddingHorizontal: 30,
@@ -717,7 +940,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#081016",
   },
-
   permissionTitle: {
     marginTop: 20,
     color: "#FFFFFF",
@@ -725,7 +947,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     textAlign: "center",
   },
-
   permissionDescription: {
     marginTop: 10,
     color: "#B0B7C3",
@@ -733,7 +954,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     textAlign: "center",
   },
-
   permissionButton: {
     marginTop: 26,
     paddingHorizontal: 30,
@@ -741,17 +961,14 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: "#3DDC84",
   },
-
   permissionButtonText: {
     color: "#07110B",
     fontWeight: "800",
   },
-
   overlay: {
     flex: 1,
     justifyContent: "space-between",
   },
-
   topBar: {
     marginTop: Platform.OS === "android" ? 20 : 4,
     paddingHorizontal: 18,
@@ -759,7 +976,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-
   circleButton: {
     width: 44,
     height: 44,
@@ -770,7 +986,6 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.06)",
     backgroundColor: "rgba(7, 14, 20, 0.90)",
   },
-
   gpsBadge: {
     minHeight: 34,
     paddingHorizontal: 15,
@@ -781,7 +996,6 @@ const styles = StyleSheet.create({
     borderColor: "rgba(61,220,132,0.10)",
     backgroundColor: "rgba(7, 14, 20, 0.90)",
   },
-
   gpsDot: {
     width: 8,
     height: 8,
@@ -793,14 +1007,12 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
   },
-
   gpsText: {
     color: "#3DDC84",
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 0.7,
   },
-
   distanceContainer: {
     position: "absolute",
     top: "35%",
@@ -808,7 +1020,6 @@ const styles = StyleSheet.create({
     right: 0,
     alignItems: "center",
   },
-
   distanceText: {
     color: "#FFFFFF",
     fontSize: 64,
@@ -821,7 +1032,6 @@ const styles = StyleSheet.create({
     },
     textShadowRadius: 8,
   },
-
   distanceLabel: {
     marginTop: -5,
     color: "#3DDC84",
@@ -829,7 +1039,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 2.2,
   },
-
   pausedBadge: {
     marginTop: 14,
     paddingHorizontal: 15,
@@ -839,18 +1048,16 @@ const styles = StyleSheet.create({
     borderColor: "#FFA940",
     backgroundColor: "rgba(20, 17, 10, 0.92)",
   },
-
   pausedBadgeText: {
     color: "#FFA940",
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 1.2,
   },
-
   recenterButton: {
     position: "absolute",
     right: 20,
-    bottom: 185,
+    bottom: 205,
     paddingHorizontal: 14,
     paddingVertical: 10,
     flexDirection: "row",
@@ -859,13 +1066,11 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: "#3DDC84",
   },
-
   recenterText: {
     color: "#101418",
     fontSize: 12,
     fontWeight: "800",
   },
-
   bottomPanel: {
     marginHorizontal: 18,
     marginBottom: Platform.OS === "android" ? 14 : 4,
@@ -877,18 +1082,15 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     backgroundColor: "rgba(7, 13, 18, 0.97)",
   },
-
   statsRow: {
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
   },
-
   statItem: {
     width: "24%",
     alignItems: "center",
   },
-
   statValue: {
     width: "100%",
     marginTop: 4,
@@ -897,7 +1099,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     textAlign: "center",
   },
-
   statLabel: {
     marginTop: 6,
     color: "#8B96A2",
@@ -905,13 +1106,18 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     letterSpacing: 1.1,
   },
-
+  bestSpeedText: {
+    marginTop: 13,
+    color: "#3DDC84",
+    fontSize: 11,
+    fontWeight: "700",
+    textAlign: "center",
+  },
   actionsRow: {
-    marginTop: 17,
+    marginTop: 14,
     flexDirection: "row",
     gap: 12,
   },
-
   actionButton: {
     flex: 1,
     height: 52,
@@ -922,34 +1128,28 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
   },
-
   pauseButton: {
     borderColor: "rgba(255,169,64,0.52)",
     backgroundColor: "rgba(255,169,64,0.12)",
   },
-
   finishButton: {
     borderColor: "rgba(255,77,79,0.58)",
     backgroundColor: "rgba(255,77,79,0.13)",
   },
-
   pauseButtonText: {
     color: "#FFA940",
     fontSize: 14,
     fontWeight: "800",
   },
-
   finishButtonText: {
     color: "#FF4D4F",
     fontSize: 14,
     fontWeight: "800",
   },
-
   pressedButton: {
     opacity: 0.7,
     transform: [{ scale: 0.98 }],
   },
-
   locationMarkerOuter: {
     width: 40,
     height: 40,
@@ -958,7 +1158,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: "rgba(61, 220, 132, 0.18)",
   },
-
   locationMarkerMiddle: {
     width: 25,
     height: 25,
@@ -967,7 +1166,6 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     backgroundColor: "rgba(61, 220, 132, 0.55)",
   },
-
   locationMarkerInner: {
     width: 13,
     height: 13,

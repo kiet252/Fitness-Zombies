@@ -1,14 +1,61 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-export default function PersonalRecords() {
+import { RunResponse } from "@/services/run.service";
+
+type Props = {
+  runs: RunResponse[];
+};
+
+export default function PersonalRecords({
+  runs,
+}: Props) {
+  const longestRun = useMemo(() => {
+    if (runs.length === 0) {
+      return null;
+    }
+
+    return runs.reduce<RunResponse | null>(
+      (longest, run) => {
+        if (
+          !longest ||
+          run.distanceMeters > longest.distanceMeters
+        ) {
+          return run;
+        }
+
+        return longest;
+      },
+      null,
+    );
+  }, [runs]);
+
   return (
     <View>
       <Text style={styles.title}>PERSONAL RECORDS</Text>
 
       <View style={styles.grid}>
-        <RecordCard icon="⌖" label="Longest Run" date="Jun 15" />
-        <RecordCard icon="◴" label="Fastest Pace" date="Jul 4" />
+        <RecordCard
+          icon="⌖"
+          value={
+            longestRun
+              ? formatDistance(longestRun.distanceMeters)
+              : "--"
+          }
+          label="Longest Run"
+          date={
+            longestRun
+              ? formatRecordDate(longestRun.startTime)
+              : ""
+          }
+        />
+
+        <RecordCard
+          icon="◴"
+          value="--"
+          label="Fastest Pace"
+          date=""
+        />
       </View>
     </View>
   );
@@ -16,25 +63,53 @@ export default function PersonalRecords() {
 
 function RecordCard({
   icon,
+  value,
   label,
   date,
 }: {
   icon: string;
+  value: string;
   label: string;
   date: string;
 }) {
   return (
     <View style={styles.card}>
-      <Text style={styles.icon}>{icon}</Text>
-      <Text style={styles.date}>{date}</Text>
+      <View style={styles.cardTop}>
+        <Text style={styles.icon}>{icon}</Text>
+
+        {date.length > 0 && (
+          <Text style={styles.date}>{date}</Text>
+        )}
+      </View>
+
+      <Text style={styles.value}>{value}</Text>
       <Text style={styles.label}>{label}</Text>
     </View>
   );
 }
 
+function formatDistance(distanceMeters: number): string {
+  const kilometers = Math.max(distanceMeters, 0) / 1000;
+
+  return `${kilometers.toFixed(1)} km`;
+}
+
+function formatRecordDate(dateString: string): string {
+  const date = new Date(dateString);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
 const styles = StyleSheet.create({
   title: {
-    color: "#fff",
+    color: "#FFFFFF",
     fontSize: 13,
     fontWeight: "900",
     letterSpacing: 2,
@@ -46,25 +121,34 @@ const styles = StyleSheet.create({
   },
   card: {
     width: "48%",
-    height: 90,
-    backgroundColor: "#171e24",
+    minHeight: 112,
+    backgroundColor: "#171E24",
     borderRadius: 14,
     padding: 16,
   },
+  cardTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   icon: {
-    color: "#2df28c",
+    color: "#2DF28C",
     fontSize: 18,
   },
   date: {
-    color: "#68727c",
+    color: "#68727C",
     fontSize: 11,
-    position: "absolute",
-    right: 16,
-    top: 16,
+  },
+  value: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "900",
+    marginTop: 14,
   },
   label: {
-    color: "#fff",
-    fontWeight: "800",
-    marginTop: 20,
+    color: "#AEB7C0",
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 4,
   },
 });
