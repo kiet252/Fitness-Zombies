@@ -7,6 +7,7 @@ type Props = {
   distance: string;
   duration: string;
   calories: string;
+  xpEarned: number;
 };
 
 export default function RunHistoryCard({
@@ -15,6 +16,7 @@ export default function RunHistoryCard({
   distance,
   duration,
   calories,
+  xpEarned,
 }: Props) {
   const isChallenge = type === "challenge";
 
@@ -58,6 +60,11 @@ export default function RunHistoryCard({
         <View>
           <Text style={styles.value}>{calories}</Text>
           <Text style={styles.label}>Calories</Text>
+        </View>
+
+        <View>
+          <Text style={styles.xpValue}>+{xpEarned}</Text>
+          <Text style={styles.label}>XP</Text>
         </View>
       </View>
     </View>
@@ -132,5 +139,10 @@ const styles = StyleSheet.create({
     color: "#9AA4B2",
     fontSize: 10,
     marginTop: 3,
+  },
+    xpValue: {
+    color: "#FFA940",
+    fontSize: 14,
+    fontWeight: "900",
   },
 });

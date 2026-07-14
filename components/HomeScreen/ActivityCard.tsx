@@ -46,7 +46,6 @@ export default function ActivityCard({ stats, profile }: Props) {
     <View style={styles.card}>
       <View style={styles.header}>
         <Text style={styles.title}>TODAY'S ACTIVITY</Text>
-        <Text style={styles.streak}>7-day streak 🔥</Text>
       </View>
 
       <View style={styles.statsRow}>
@@ -89,15 +88,6 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     fontSize: 12,
     letterSpacing: 1.2,
-  },
-  streak: {
-    color: Colors.primary,
-    backgroundColor: "rgba(61,220,132,0.15)",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    fontSize: 11,
-    fontWeight: "700",
   },
   statsRow: {
     flexDirection: "row",

@@ -35,6 +35,7 @@ export type RunResponse = {
     points: RunRoutePoint[];
   } | null;
   createdAt: string | null;
+  xpEarned: number;
 };
 
 export async function createRun(

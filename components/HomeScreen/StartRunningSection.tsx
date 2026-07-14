@@ -1,17 +1,52 @@
 import { Colors } from "@/constants/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useRouter } from "expo-router";
+import {
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
-function RunModeCard({ title, subtitle, icon, danger = false }: any) {
+type RunModeCardProps = {
+  title: string;
+  subtitle: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  path: "/normal-run" | "/zombie-run";
+  danger?: boolean;
+};
+
+function RunModeCard({
+  title,
+  subtitle,
+  icon,
+  path,
+  danger = false,
+}: RunModeCardProps) {
+  const router = useRouter();
+
   return (
-    <TouchableOpacity style={[styles.modeCard, danger && styles.dangerCard]}>
-      <View style={[styles.iconBox, danger && styles.dangerIcon]}>
+    <TouchableOpacity
+      activeOpacity={0.85}
+      style={[
+        styles.modeCard,
+        danger && styles.dangerCard,
+      ]}
+      onPress={() => router.push(path)}
+    >
+      <View
+        style={[
+          styles.iconBox,
+          danger && styles.dangerIcon,
+        ]}
+      >
         <MaterialCommunityIcons
           name={icon}
           size={27}
           color={danger ? "#FF4D57" : Colors.primary}
         />
       </View>
+
       <Text style={styles.modeTitle}>{title}</Text>
       <Text style={styles.modeSubtitle}>{subtitle}</Text>
     </TouchableOpacity>
@@ -28,12 +63,14 @@ export default function StartRunningSection() {
           title="Normal Run"
           subtitle="Free pace tracking"
           icon="pulse"
+          path="/normal-run"
         />
 
         <RunModeCard
           title="Zombie Challenge"
           subtitle="Interval training"
           icon="lightning-bolt-outline"
+          path="/zombie-run"
           danger
         />
       </View>

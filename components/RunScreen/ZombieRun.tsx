@@ -1,9 +1,14 @@
 import React from "react";
+import { router } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+
 
 export default function ZombieRun() {
   return (
-    <TouchableOpacity activeOpacity={0.85} style={styles.card}>
+    <TouchableOpacity 
+    activeOpacity={0.85} 
+    style={styles.card}
+    onPress={() => router.push("/zombie-run")}>
       <View style={styles.topRow}>
         <View style={styles.iconBox}>
           <Text style={styles.icon}>ϟ</Text>

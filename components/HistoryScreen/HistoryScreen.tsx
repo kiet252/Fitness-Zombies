@@ -9,12 +9,17 @@ import {
 
 import { getAllRuns, RunResponse } from "@/services/run.service";
 
-import HistoryFilterTabs from "./HistoryFilterTabs";
+import HistoryFilterTabs, {
+  HistoryFilter,
+} from "./HistoryFilterTabs";
 import RunHistoryCard from "./RunHistoryCard";
 import WeeklyDistanceCard from "./WeeklyDistanceCard";
 
 export default function HistoryScreen() {
   const [runs, setRuns] = useState<RunResponse[]>([]);
+  const [selectedFilter, setSelectedFilter] =
+    useState<HistoryFilter>("week");
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,6 +33,7 @@ export default function HistoryScreen() {
       setError(null);
 
       const data = await getAllRuns();
+
       setRuns(data);
     } catch (err) {
       console.error("Failed to load runs:", err);
@@ -46,10 +52,16 @@ export default function HistoryScreen() {
     return buildWeeklyDistance(runs);
   }, [runs]);
 
-  const weeklyDistanceKilometers = weeklyDistance.reduce(
-    (total, distance) => total + distance,
-    0,
-  );
+  const weeklyDistanceKilometers = useMemo(() => {
+    return weeklyDistance.reduce(
+      (total, distance) => total + distance,
+      0,
+    );
+  }, [weeklyDistance]);
+
+  const filteredRuns = useMemo(() => {
+    return filterRuns(runs, selectedFilter);
+  }, [runs, selectedFilter]);
 
   return (
     <ScrollView
@@ -66,12 +78,18 @@ export default function HistoryScreen() {
 
       <WeeklyDistanceCard weeklyDistance={weeklyDistance} />
 
-      <HistoryFilterTabs />
+      <HistoryFilterTabs
+        selectedFilter={selectedFilter}
+        onFilterChange={setSelectedFilter}
+      />
 
       {loading && (
         <View style={styles.statusContainer}>
           <ActivityIndicator size="large" color="#39E58C" />
-          <Text style={styles.statusText}>Loading your runs...</Text>
+
+          <Text style={styles.statusText}>
+            Loading your runs...
+          </Text>
         </View>
       )}
 
@@ -97,32 +115,124 @@ export default function HistoryScreen() {
 
       {!loading &&
         !error &&
-        runs.map((run) => (
+        runs.length > 0 &&
+        filteredRuns.length === 0 && (
+          <View style={styles.statusContainer}>
+            <Text style={styles.emptyTitle}>
+              No runs found
+            </Text>
+
+            <Text style={styles.statusText}>
+              You have no runs for this time period.
+            </Text>
+          </View>
+        )}
+
+      {!loading &&
+        !error &&
+        filteredRuns.map((run) => (
           <RunHistoryCard
             key={run.id}
-            type={run.type === "zombie" ? "challenge" : "normal"}
+            type={
+              run.type === "zombie"
+                ? "challenge"
+                : "normal"
+            }
             date={formatRunDate(run.startTime)}
             distance={formatDistance(run.distanceMeters)}
             duration={formatDuration(run.durationSeconds)}
-            calories={`${Math.round(run.caloriesBurned)} kcal`}
+            calories={`${Math.round(
+              run.caloriesBurned,
+            )} kcal`}
+            xpEarned={run.xpEarned}
           />
         ))}
     </ScrollView>
   );
 }
 
-function buildWeeklyDistance(runs: RunResponse[]): number[] {
-  const weeklyDistance = [0, 0, 0, 0, 0, 0, 0];
-
+function filterRuns(
+  runs: RunResponse[],
+  filter: HistoryFilter,
+): RunResponse[] {
   const now = new Date();
 
-  const startOfWeek = new Date(now);
+  const filtered = runs.filter((run) => {
+    const runDate = new Date(run.startTime);
+
+    if (Number.isNaN(runDate.getTime())) {
+      return false;
+    }
+
+    if (filter === "all") {
+      return true;
+    }
+
+    if (filter === "week") {
+      const startOfWeek = getStartOfWeek(now);
+      const endOfWeek = new Date(startOfWeek);
+
+      endOfWeek.setDate(endOfWeek.getDate() + 7);
+
+      return (
+        runDate >= startOfWeek &&
+        runDate < endOfWeek
+      );
+    }
+
+    if (filter === "month") {
+      const startOfMonth = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        1,
+      );
+
+      const endOfMonth = new Date(
+        now.getFullYear(),
+        now.getMonth() + 1,
+        1,
+      );
+
+      return (
+        runDate >= startOfMonth &&
+        runDate < endOfMonth
+      );
+    }
+
+    return true;
+  });
+
+  // Show newest runs first.
+  return filtered.sort(
+    (firstRun, secondRun) =>
+      new Date(secondRun.startTime).getTime() -
+      new Date(firstRun.startTime).getTime(),
+  );
+}
+
+function getStartOfWeek(date: Date): Date {
+  const startOfWeek = new Date(date);
   const currentDay = startOfWeek.getDay();
 
-  const daysSinceMonday = currentDay === 0 ? 6 : currentDay - 1;
+  // Convert Sunday = 0 to Monday-based week.
+  const daysSinceMonday =
+    currentDay === 0 ? 6 : currentDay - 1;
 
-  startOfWeek.setDate(startOfWeek.getDate() - daysSinceMonday);
+  startOfWeek.setDate(
+    startOfWeek.getDate() - daysSinceMonday,
+  );
+
   startOfWeek.setHours(0, 0, 0, 0);
+
+  return startOfWeek;
+}
+
+function buildWeeklyDistance(
+  runs: RunResponse[],
+): number[] {
+  const weeklyDistance = [0, 0, 0, 0, 0, 0, 0];
+
+  const startOfWeek = getStartOfWeek(new Date());
 
   const endOfWeek = new Date(startOfWeek);
   endOfWeek.setDate(endOfWeek.getDate() + 7);
@@ -130,48 +240,71 @@ function buildWeeklyDistance(runs: RunResponse[]): number[] {
   runs.forEach((run) => {
     const runDate = new Date(run.startTime);
 
-    if (runDate < startOfWeek || runDate >= endOfWeek) {
+    if (
+      Number.isNaN(runDate.getTime()) ||
+      runDate < startOfWeek ||
+      runDate >= endOfWeek
+    ) {
       return;
     }
 
     const javascriptDay = runDate.getDay();
 
-    // JavaScript:
-    // Sunday = 0
-    // Monday = 1
-    //
-    // Chart:
-    // Monday = 0
-    // Sunday = 6
-    const dayIndex = javascriptDay === 0 ? 6 : javascriptDay - 1;
+    const dayIndex =
+      javascriptDay === 0
+        ? 6
+        : javascriptDay - 1;
 
-    weeklyDistance[dayIndex] += run.distanceMeters / 1000;
+    weeklyDistance[dayIndex] +=
+      Math.max(run.distanceMeters, 0) / 1000;
   });
 
   return weeklyDistance;
 }
 
 function formatRunDate(date: string): string {
-  return new Date(date).toLocaleDateString("en-US", {
+  const parsedDate = new Date(date);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "";
+  }
+
+  return parsedDate.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
   });
 }
 
-function formatDistance(distanceMeters: number): string {
-  return `${(distanceMeters / 1000).toFixed(1)} km`;
+function formatDistance(
+  distanceMeters: number,
+): string {
+  return `${(
+    Math.max(distanceMeters, 0) / 1000
+  ).toFixed(1)} km`;
 }
 
-function formatDuration(durationSeconds: number): string {
-  const totalSeconds = Math.max(0, Math.floor(durationSeconds));
+function formatDuration(
+  durationSeconds: number,
+): string {
+  const totalSeconds = Math.max(
+    0,
+    Math.floor(durationSeconds),
+  );
 
   const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const minutes = Math.floor(
+    (totalSeconds % 3600) / 60,
+  );
   const seconds = totalSeconds % 60;
 
-  const formattedMinutes = minutes.toString().padStart(2, "0");
-  const formattedSeconds = seconds.toString().padStart(2, "0");
+  const formattedMinutes = minutes
+    .toString()
+    .padStart(2, "0");
+
+  const formattedSeconds = seconds
+    .toString()
+    .padStart(2, "0");
 
   if (hours > 0) {
     return `${hours}:${formattedMinutes}:${formattedSeconds}`;

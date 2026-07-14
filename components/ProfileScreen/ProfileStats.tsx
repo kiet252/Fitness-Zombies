@@ -25,8 +25,12 @@ export default function ProfileStats({ runs }: Props) {
       />
 
       <Stat
-        value="--"
-        label="Best Pace"
+        value={
+          stats.topSpeedKmh > 0
+            ? `${stats.topSpeedKmh.toFixed(1)} km/h`
+            : "--"
+        }
+        label="Top Speed"
       />
     </View>
   );
@@ -40,11 +44,19 @@ function calculateProfileStats(runs: RunResponse[]) {
 
       result.totalRuns += 1;
 
+      if (
+        Number.isFinite(run.bestSpeedKmh) &&
+        run.bestSpeedKmh > result.topSpeedKmh
+      ) {
+        result.topSpeedKmh = run.bestSpeedKmh;
+      }
+
       return result;
     },
     {
       totalDistanceKilometers: 0,
       totalRuns: 0,
+      topSpeedKmh: 0,
     },
   );
 }

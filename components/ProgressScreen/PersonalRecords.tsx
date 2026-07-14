@@ -7,27 +7,39 @@ type Props = {
   runs: RunResponse[];
 };
 
-export default function PersonalRecords({
-  runs,
-}: Props) {
+export default function PersonalRecords({ runs }: Props) {
   const longestRun = useMemo(() => {
-    if (runs.length === 0) {
-      return null;
-    }
+    return runs.reduce<RunResponse | null>((longest, run) => {
+      if (
+        !longest ||
+        run.distanceMeters > longest.distanceMeters
+      ) {
+        return run;
+      }
 
-    return runs.reduce<RunResponse | null>(
-      (longest, run) => {
-        if (
-          !longest ||
-          run.distanceMeters > longest.distanceMeters
-        ) {
-          return run;
-        }
+      return longest;
+    }, null);
+  }, [runs]);
 
-        return longest;
-      },
-      null,
-    );
+  const fastestRun = useMemo(() => {
+    return runs.reduce<RunResponse | null>((fastest, run) => {
+      // Ignore runs without a valid recorded speed.
+      if (
+        !Number.isFinite(run.bestSpeedKmh) ||
+        run.bestSpeedKmh <= 0
+      ) {
+        return fastest;
+      }
+
+      if (
+        !fastest ||
+        run.bestSpeedKmh > fastest.bestSpeedKmh
+      ) {
+        return run;
+      }
+
+      return fastest;
+    }, null);
   }, [runs]);
 
   return (
@@ -52,9 +64,17 @@ export default function PersonalRecords({
 
         <RecordCard
           icon="◴"
-          value="--"
-          label="Fastest Pace"
-          date=""
+          value={
+            fastestRun
+              ? formatSpeed(fastestRun.bestSpeedKmh)
+              : "--"
+          }
+          label="Top Speed"
+          date={
+            fastestRun
+              ? formatRecordDate(fastestRun.startTime)
+              : ""
+          }
         />
       </View>
     </View>
@@ -92,6 +112,14 @@ function formatDistance(distanceMeters: number): string {
   const kilometers = Math.max(distanceMeters, 0) / 1000;
 
   return `${kilometers.toFixed(1)} km`;
+}
+
+function formatSpeed(speedKmh: number): string {
+  if (!Number.isFinite(speedKmh) || speedKmh <= 0) {
+    return "--";
+  }
+
+  return `${speedKmh.toFixed(1)} km/h`;
 }
 
 function formatRecordDate(dateString: string): string {

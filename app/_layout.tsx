@@ -30,6 +30,15 @@ export default function RootLayout() {
               animation: "slide_from_right",
             }}
           />
+
+          <Stack.Screen
+            name="zombie-run"
+            options={{
+              headerShown: false,
+              presentation: "card",
+              animation: "slide_from_right",
+            }}
+          />
         </Stack>
 
     </View>

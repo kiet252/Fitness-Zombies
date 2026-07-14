@@ -1,18 +1,83 @@
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
-export default function HistoryFilterTabs() {
+export type HistoryFilter =
+  | "week"
+  | "month"
+  | "all";
+
+type Props = {
+  selectedFilter: HistoryFilter;
+  onFilterChange: (
+    filter: HistoryFilter,
+  ) => void;
+};
+
+export default function HistoryFilterTabs({
+  selectedFilter,
+  onFilterChange,
+}: Props) {
   return (
     <View style={styles.row}>
-      <TouchableOpacity style={[styles.tab, styles.active]}>
-        <Text style={styles.activeText}>Week</Text>
+      <TouchableOpacity
+        activeOpacity={0.8}
+        style={[
+          styles.tab,
+          selectedFilter === "week" && styles.active,
+        ]}
+        onPress={() => onFilterChange("week")}
+      >
+        <Text
+          style={
+            selectedFilter === "week"
+              ? styles.activeText
+              : styles.text
+          }
+        >
+          Week
+        </Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.tab}>
-        <Text style={styles.text}>Month</Text>
+      <TouchableOpacity
+        activeOpacity={0.8}
+        style={[
+          styles.tab,
+          selectedFilter === "month" && styles.active,
+        ]}
+        onPress={() => onFilterChange("month")}
+      >
+        <Text
+          style={
+            selectedFilter === "month"
+              ? styles.activeText
+              : styles.text
+          }
+        >
+          Month
+        </Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.tab}>
-        <Text style={styles.text}>All</Text>
+      <TouchableOpacity
+        activeOpacity={0.8}
+        style={[
+          styles.tab,
+          selectedFilter === "all" && styles.active,
+        ]}
+        onPress={() => onFilterChange("all")}
+      >
+        <Text
+          style={
+            selectedFilter === "all"
+              ? styles.activeText
+              : styles.text
+          }
+        >
+          All
+        </Text>
       </TouchableOpacity>
     </View>
   );

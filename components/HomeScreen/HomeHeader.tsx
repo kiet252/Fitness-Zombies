@@ -9,11 +9,33 @@ type Props = {
 export default function HomeHeader({ fullName }: Props) {
   const firstName = fullName?.split(" ")[0] || "User";
 
+  const now = new Date();
+
+  const formattedDate = now
+    .toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "short",
+      day: "numeric",
+    })
+    .toUpperCase();
+
+  const hour = now.getHours();
+
+  let greeting = "Good Evening";
+
+  if (hour < 12) {
+    greeting = "Good Morning";
+  } else if (hour < 18) {
+    greeting = "Good Afternoon";
+  }
+
   return (
     <View style={styles.container}>
       <View>
-        <Text style={styles.date}>MONDAY, JUL 6</Text>
-        <Text style={styles.greeting}>Good Morning, {firstName} 👋</Text>
+        <Text style={styles.date}>{formattedDate}</Text>
+        <Text style={styles.greeting}>
+          {greeting}, {firstName} 👋
+        </Text>
       </View>
 
       <TouchableOpacity style={styles.bell}>
