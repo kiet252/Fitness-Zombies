@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { DeviceEventEmitter } from "react-native";
 import {
   ActivityIndicator,
   ScrollView,
@@ -48,6 +49,14 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     loadProfile();
+
+    const subscription = DeviceEventEmitter.addListener("run_finished", () => {
+      loadProfile();
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   async function loadProfile() {

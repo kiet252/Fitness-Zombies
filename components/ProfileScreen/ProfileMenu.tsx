@@ -1,14 +1,30 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { router } from "expo-router";
+import { removeAuth } from "@/services/token.service";
 
 export default function ProfileMenu() {
+  async function handleSignOut() {
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      { 
+        text: "Sign Out", 
+        style: "destructive",
+        onPress: async () => {
+          await removeAuth();
+          router.replace("/login");
+        }
+      }
+    ]);
+  }
+
   return (
     <View>
       <MenuItem icon="◎" title="Goals" subtitle="Set weekly targets" />
       <MenuItem icon="⌁" title="Health Connect" subtitle="Sync with health apps" />
       <MenuItem icon="⚙" title="Settings" subtitle="App preferences" />
       <MenuItem icon="♢" title="Privacy & Data" subtitle="Manage your data" />
-      <MenuItem icon="↪" title="Sign Out" danger />
+      <MenuItem icon="↪" title="Sign Out" danger onPress={handleSignOut} />
     </View>
   );
 }
@@ -18,14 +34,21 @@ function MenuItem({
   title,
   subtitle,
   danger,
+  onPress,
 }: {
   icon: string;
   title: string;
   subtitle?: string;
   danger?: boolean;
+  onPress?: () => void;
 }) {
   return (
-    <View style={[styles.item, danger && styles.dangerItem]}>
+    <TouchableOpacity 
+      style={[styles.item, danger && styles.dangerItem]}
+      onPress={onPress}
+      activeOpacity={0.7}
+      disabled={!onPress}
+    >
       <View style={[styles.iconBox, danger && styles.dangerIconBox]}>
         <Text style={[styles.icon, danger && styles.dangerIcon]}>{icon}</Text>
       </View>
@@ -36,7 +59,7 @@ function MenuItem({
       </View>
 
       {!danger && <Text style={styles.chevron}>›</Text>}
-    </View>
+    </TouchableOpacity>
   );
 }
 

@@ -4,6 +4,7 @@ import {
   Alert,
   StyleSheet,
   View,
+  DeviceEventEmitter,
 } from "react-native";
 import { Region } from "react-native-maps";
 
@@ -66,6 +67,7 @@ export default function ZombieRunScreen() {
 
       });
 
+      DeviceEventEmitter.emit("run_finished");
 
       Alert.alert(
         "Zombie Run Complete!",
@@ -268,11 +270,11 @@ export default function ZombieRunScreen() {
 
           <RunControls
 
-            text="SPRINT"
+            text="Finish"
 
-            onPress={() => {
-              // Sprint logic later
-            }}
+            onPress={
+              finishRun
+            }
 
           />
 

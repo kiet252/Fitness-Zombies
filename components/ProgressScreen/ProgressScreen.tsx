@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { DeviceEventEmitter } from "react-native";
 import {
   ActivityIndicator,
   ScrollView,
@@ -30,6 +31,14 @@ export default function ProgressScreen() {
 
   useEffect(() => {
     loadRuns();
+
+    const subscription = DeviceEventEmitter.addListener("run_finished", () => {
+      loadRuns();
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   async function loadRuns() {

@@ -1,35 +1,58 @@
 import { Colors } from "@/constants/colors";
+import { ProfileAchievement } from "@/services/achievement.service";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
-
-type Achievement = {
-  title: string;
-  icon?: string;
-};
+import { useRouter } from "expo-router";
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 type Props = {
-  achievements?: Achievement[];
+  achievements?: ProfileAchievement[];
 };
 
-function AchievementCard({ icon, title }: Achievement) {
+function AchievementCard({ icon, title, unlockedAt }: ProfileAchievement) {
+  const isUnlocked = !!unlockedAt;
+
   return (
-    <View style={styles.achievement}>
-      <MaterialCommunityIcons
-        name={(icon || "trophy") as any}
-        size={24}
-        color={Colors.primary}
-      />
-      <Text style={styles.achievementText}>{title}</Text>
+    <View style={[styles.achievement, isUnlocked ? styles.achievementUnlocked : styles.achievementLocked]}>
+      <View style={[styles.iconWrapper, isUnlocked ? styles.iconWrapperUnlocked : styles.iconWrapperLocked]}>
+        <MaterialCommunityIcons
+          name={(icon || "trophy") as any}
+          size={26}
+          color={isUnlocked ? Colors.primary : "#3A4550"}
+        />
+      </View>
+      <Text
+        style={[
+          styles.achievementText,
+          isUnlocked ? styles.achievementTextUnlocked : styles.achievementTextLocked,
+        ]}
+        numberOfLines={2}
+      >
+        {title}
+      </Text>
+      <View style={[styles.badge, isUnlocked ? styles.badgeUnlocked : styles.badgeLocked]}>
+        <MaterialCommunityIcons
+          name={isUnlocked ? "check-circle" : "lock"}
+          size={10}
+          color={isUnlocked ? Colors.primary : "#3A4550"}
+        />
+        <Text style={[styles.badgeText, isUnlocked ? styles.badgeTextUnlocked : styles.badgeTextLocked]}>
+          {isUnlocked ? "Unlocked" : "Locked"}
+        </Text>
+      </View>
     </View>
   );
 }
 
 export default function AchievementSection({ achievements = [] }: Props) {
+  const router = useRouter();
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Achievements</Text>
-        <Text style={styles.viewAll}>View all</Text>
+        <TouchableOpacity onPress={() => router.push("/(main)/achievements")}>
+          <Text style={styles.viewAll}>View all</Text>
+        </TouchableOpacity>
       </View>
 
       {achievements.length === 0 ? (
@@ -48,11 +71,10 @@ export default function AchievementSection({ achievements = [] }: Props) {
         </View>
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {achievements.map((item, index) => (
+          {achievements.map((item) => (
             <AchievementCard
-              key={`${item.title}-${index}`}
-              title={item.title}
-              icon={item.icon}
+              key={item.achievementId}
+              {...item}
             />
           ))}
         </ScrollView>
@@ -80,25 +102,84 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
   },
+
+  // Card base
   achievement: {
-    width: 72,
-    height: 82,
-    borderRadius: 14,
-    backgroundColor: "rgba(61,220,132,0.12)",
+    width: 84,
+    height: 100,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "rgba(61,220,132,0.35)",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 10,
-    padding: 6,
+    padding: 8,
+    gap: 4,
   },
+  achievementUnlocked: {
+    backgroundColor: "rgba(61,220,132,0.10)",
+    borderColor: "rgba(61,220,132,0.40)",
+  },
+  achievementLocked: {
+    backgroundColor: "#0F1419",
+    borderColor: "#1E2830",
+  },
+
+  // Icon wrapper
+  iconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconWrapperUnlocked: {
+    backgroundColor: "rgba(61,220,132,0.15)",
+  },
+  iconWrapperLocked: {
+    backgroundColor: "#171C22",
+  },
+
+  // Title
   achievementText: {
-    color: Colors.primary,
-    fontSize: 9,
+    fontSize: 8.5,
     textAlign: "center",
-    marginTop: 6,
+    fontWeight: "700",
+    lineHeight: 12,
+  },
+  achievementTextUnlocked: {
+    color: Colors.primary,
+  },
+  achievementTextLocked: {
+    color: "#3A4550",
+  },
+
+  // Badge
+  badge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 20,
+  },
+  badgeUnlocked: {
+    backgroundColor: "rgba(61,220,132,0.15)",
+  },
+  badgeLocked: {
+    backgroundColor: "#171C22",
+  },
+  badgeText: {
+    fontSize: 7,
     fontWeight: "700",
   },
+  badgeTextUnlocked: {
+    color: Colors.primary,
+  },
+  badgeTextLocked: {
+    color: "#3A4550",
+  },
+
+  // Empty state
   emptyBox: {
     height: 96,
     borderRadius: 16,

@@ -16,9 +16,11 @@ export default function MainLayout() {
     >
       <Tabs.Screen name="home" options={{ title: "Home", tabBarIcon: ({ color }) => <Ionicons name="home-outline" size={24} color={color} /> }} />
       <Tabs.Screen name="history" options={{ title: "History", tabBarIcon: ({ color }) => <Ionicons name="bar-chart-outline" size={24} color={color} /> }} />
+      <Tabs.Screen name="achievements" options={{ title: "Trophies", tabBarIcon: ({ color }) => <MaterialCommunityIcons name="trophy-outline" size={24} color={color} /> }} />
       <Tabs.Screen name="run" options={{ title: "", tabBarIcon: () => <View style={styles.runButton}><Ionicons name="play-outline" size={34} color="#06110B" /></View> }} />
       <Tabs.Screen name="progress" options={{ title: "Progress", tabBarIcon: ({ color }) => <MaterialCommunityIcons name="trending-up" size={24} color={color} /> }} />
       <Tabs.Screen name="profile" options={{ title: "Profile", tabBarIcon: ({ color }) => <Ionicons name="person-outline" size={24} color={color} /> }} />
+      <Tabs.Screen name="base" options={{ title: "Base", tabBarIcon: ({ color }) => <MaterialCommunityIcons name="home-city-outline" size={24} color={color} /> }} />
     </Tabs>
   );
 }

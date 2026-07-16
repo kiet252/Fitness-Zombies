@@ -3,7 +3,7 @@ import { login } from "@/services/auth.service";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -14,11 +14,22 @@ import {
   View,
 } from "react-native";
 import { saveAuth } from "@/services/token.service";
+import * as SecureStore from "expo-secure-store";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+
+  useEffect(() => {
+    SecureStore.getItemAsync("remembered_email").then((savedEmail) => {
+      if (savedEmail) {
+        setEmail(savedEmail);
+        setRememberMe(true);
+      }
+    });
+  }, []);
 
   async function handleLogin() {
     if (!email.trim() || !password.trim()) {
@@ -37,6 +48,12 @@ export default function LoginScreen() {
         email: result.email,
         token: result.token,
       });
+
+      if (rememberMe) {
+        await SecureStore.setItemAsync("remembered_email", email);
+      } else {
+        await SecureStore.deleteItemAsync("remembered_email");
+      }
 
       console.log("Login success:", result);
 
@@ -95,7 +112,13 @@ export default function LoginScreen() {
       </View>
 
       <View style={styles.row}>
-        <Text style={styles.remember}>○  Remember me</Text>
+        <TouchableOpacity 
+          style={styles.rememberBtn}
+          onPress={() => setRememberMe(!rememberMe)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.remember}>{rememberMe ? "●" : "○"}  Remember me</Text>
+        </TouchableOpacity>
         <Text style={styles.forgot}>Forgot password?</Text>
       </View>
 
@@ -181,7 +204,15 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 20,
+  },
+
+  rememberBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 4,
+    paddingRight: 8,
   },
 
   remember: {

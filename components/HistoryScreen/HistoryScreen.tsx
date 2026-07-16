@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { DeviceEventEmitter } from "react-native";
 import {
   ActivityIndicator,
   ScrollView,
@@ -25,6 +26,14 @@ export default function HistoryScreen() {
 
   useEffect(() => {
     loadRuns();
+
+    const subscription = DeviceEventEmitter.addListener("run_finished", () => {
+      loadRuns();
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   async function loadRuns() {

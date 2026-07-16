@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { DeviceEventEmitter, ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import HomeHeader from "@/components/HomeScreen/HomeHeader";
 import ActivityCard from "@/components/HomeScreen/ActivityCard";
@@ -8,9 +8,11 @@ import DistanceChart from "@/components/HomeScreen/DistanceChart";
 import AchievementSection from "@/components/HomeScreen/AchievementSection";
 
 import { getHome } from "@/services/home.service";
+import { getProfileAchievements, ProfileAchievement } from "@/services/achievement.service";
 
 export default function HomeScreen() {
   const [home, setHome] = useState<any>(null);
+  const [achievements, setAchievements] = useState<ProfileAchievement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -25,9 +27,24 @@ export default function HomeScreen() {
       } finally {
         setIsLoading(false);
       }
+
+      try {
+        const achievementsData = await getProfileAchievements();
+        setAchievements(achievementsData);
+      } catch (error: any) {
+        console.log("Failed to load achievements:", error.response?.status);
+      }
     }
 
     loadHome();
+
+    const subscription = DeviceEventEmitter.addListener("run_finished", () => {
+      loadHome();
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   if (isLoading) {
@@ -67,7 +84,7 @@ export default function HomeScreen() {
 
       <DistanceChart weeklyDistance={home.weeklyDistance} />
 
-      <AchievementSection achievements={home.recentAchievements} />
+      <AchievementSection achievements={achievements} />
     </ScrollView>
   );
 }

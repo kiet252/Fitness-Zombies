@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Text,
   View,
+  DeviceEventEmitter,
 } from "react-native";
 import { Region } from "react-native-maps";
 
@@ -62,6 +63,7 @@ export default function NormalRunScreen() {
         }
       });
 
+      DeviceEventEmitter.emit("run_finished");
 
       Alert.alert(
         "Run saved",
